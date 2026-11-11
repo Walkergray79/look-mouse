@@ -32,7 +32,11 @@ DEFAULTS = {
         "window": 8,            # number of recent frames averaged for each estimate
     },
     "camera": {"source": "auto", "index": 0, "width": 640, "height": 480, "flip": False},
-    # monitor index (as a string) -> list of {"f": [yaw, pitch, eye_h, eye_v], "u": 0..1, "v": 0..1}
+    # Optional glasses-mounted camera looking at one eye (see docs/glasses.md).
+    "eye_camera": {"enabled": False, "source": "", "threshold": 25, "flip": False},
+    # Whether the saved calibration was made with the glasses camera ("glasses") or without ("webcam").
+    "calibration_source": None,
+    # monitor index (as a string) -> list of {"f": [head yaw, head pitch, eye across, eye up/down], "u": 0..1, "v": 0..1}
     "calibration": {},
 }
 

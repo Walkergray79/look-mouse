@@ -87,6 +87,13 @@ Things to tune on the settings page:
 - **Frames averaged**: higher is steadier, lower reacts faster.
 - **Trigger key**: Scroll Lock, Caps Lock or Num Lock, or a push button wired to the Pi.
 
+## Glasses upgrade (optional)
+
+A small camera on your glasses, pointed at one eye, gives a much finer reading of where
+you are looking. The desk camera still tracks your head. See [docs/glasses.md](docs/glasses.md).
+
+![Desk camera gives head direction, glasses camera gives eye direction, the Pi combines them](docs/glasses.svg)
+
 ## If something isn't working
 
 | What you see | What to try |
@@ -113,11 +120,13 @@ The page is read from disk on every refresh, so interface edits show immediately
 | File | What it does |
 |---|---|
 | `look_mouse/tracker.py` | Camera and face tracking (MediaPipe); produces head and eye measurements |
+| `look_mouse/eye.py` | Optional glasses camera: finds the pupil |
 | `look_mouse/gaze.py` | Calibration maths: measurements to "which screen, where on it" |
 | `look_mouse/hid.py` | USB output (jump, step, key tap) and the lock-key listener |
 | `look_mouse/app.py` | Ties it together: trigger, estimate, jump |
 | `look_mouse/server.py`, `look_mouse/web/index.html` | The web interface and its API |
 | `look_mouse/config.py` | Settings and calibration, saved in `~/.config/look-mouse/config.json` |
+| `docs/make_diagrams.py` | Regenerates the diagrams in `docs/` |
 | `scripts/setup_gadget.sh` | Makes the Pi appear as USB devices (run at boot by the installer) |
 
 Tests: `python3 -m unittest discover -s tests`

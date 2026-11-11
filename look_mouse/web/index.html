@@ -60,6 +60,7 @@
   <h1>Look Mouse</h1>
   <span id="p-face" class="pill">face</span>
   <span id="p-usb" class="pill">USB link</span>
+  <span id="p-eye" class="pill" hidden>glasses camera</span>
   <span id="p-sim" class="pill" hidden>simulation</span>
   <span id="msg" class="muted"></span>
 </header>
@@ -81,6 +82,8 @@
         <div class="row">
           <label class="field">Head left / right <input type="range" id="s-yaw" min="-70" max="70" value="0"></label>
           <label class="field">Head up / down <input type="range" id="s-pitch" min="-30" max="30" value="0"></label>
+          <label class="field">Eye left / right <input type="range" id="s-eh" min="0" max="100" value="50"></label>
+          <label class="field">Eye up / down <input type="range" id="s-ev" min="-50" max="50" value="0"></label>
           <label class="check"><input type="checkbox" id="s-face" checked> face visible</label>
         </div>
       </div>
@@ -132,6 +135,23 @@
     </section>
 
     <section class="card">
+      <h2>Glasses camera (optional)</h2>
+      <div class="muted">A small camera on your glasses, pointed at one eye, gives a much finer reading of eye direction. The desk camera still tracks your head. Calibrate again after switching this on or off, and whenever the glasses have shifted.</div>
+      <div class="row" style="align-items:flex-start">
+        <img id="eyeview" alt="Glasses camera preview" hidden style="width:150px; border-radius:8px; background:var(--screen)">
+        <div style="flex:1; min-width:200px">
+          <label class="check"><input type="checkbox" id="e-on"> use the glasses camera</label>
+          <div class="row">
+            <label class="field">Camera number or stream address <input id="e-src" size="26" placeholder="1  or  http://…/stream"></label>
+            <label class="field">Pupil darkness <input type="number" id="e-thr" min="5" max="120"></label>
+          </div>
+          <div class="row"><label class="check"><input type="checkbox" id="e-flip"> picture is upside down</label></div>
+          <div id="e-msg" class="muted" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>3. Calibrate</h2>
       <div class="muted">Move this browser window onto the screen you want to calibrate, choose it below and start. A dot appears full-screen: look at it and press <b>Space</b>. One point is enough to pick the screen; nine points lets the cursor land where you look.</div>
       <div class="row">
@@ -176,6 +196,10 @@ async function loadConfig() {
   $('t-restore').checked = cfg.trigger.restore;
   $('t-pin').value = cfg.trigger.gpio_pin ?? '';
   $('c-flip').checked = cfg.camera.flip;
+  $('e-on').checked = cfg.eye_camera.enabled;
+  if (document.activeElement !== $('e-src')) $('e-src').value = cfg.eye_camera.source;
+  $('e-thr').value = cfg.eye_camera.threshold;
+  $('e-flip').checked = cfg.eye_camera.flip;
   drawDesk();
 }
 function monitorRow(m, i) {
@@ -205,6 +229,10 @@ $('t-key').onchange = e => save({trigger: {lock_key: e.target.value}});
 $('t-restore').onchange = e => save({trigger: {restore: e.target.checked}});
 $('t-pin').onchange = e => save({trigger: {gpio_pin: e.target.value === '' ? null : +e.target.value}});
 $('c-flip').onchange = e => save({camera: {flip: e.target.checked}});
+$('e-on').onchange = e => save({eye_camera: {enabled: e.target.checked}});
+$('e-src').onchange = e => save({eye_camera: {source: e.target.value.trim()}});
+$('e-thr').onchange = e => save({eye_camera: {threshold: Math.max(5, +e.target.value || 25)}});
+$('e-flip').onchange = e => save({eye_camera: {flip: e.target.checked}});
 
 // ---- desk diagram ---------------------------------------------------------
 function drawDesk() {
@@ -240,16 +268,22 @@ async function tick() {
   $('p-sim').hidden = $('sim').hidden = !status.simulated;
   $('preview').hidden = status.simulated;
   if (!status.simulated && !document.hidden) $('preview').src = '/frame.jpg?' + Date.now();
-  const g = status.gaze, f = status.features;
-  $('looking').textContent = g ? `Looking at: ${cfg.monitors[g.monitor]?.name ?? '?'}` : (status.face ? 'Not calibrated yet' : (status.camera_error || 'No face in view'));
+  const g = status.gaze, f = status.features, eye = status.eye;
+  $('p-eye').hidden = !eye.enabled;
+  $('p-eye').className = 'pill ' + (eye.pupil ? 'good' : 'bad');
+  $('p-eye').textContent = eye.pupil ? 'pupil in view' : 'no pupil in view';
+  $('eyeview').hidden = !eye.enabled || status.simulated;
+  if (eye.enabled && !status.simulated && !document.hidden) $('eyeview').src = '/eye.jpg?' + Date.now();
+  $('e-msg').textContent = !eye.enabled ? '' : (eye.error || (eye.pupil ? `Pupil found · ${eye.fps} frames/s. The green outline should hug the pupil.` : 'No pupil found. Adjust the camera or the pupil darkness until a green outline hugs the pupil.'));
+  $('looking').textContent = g ? `Looking at: ${cfg.monitors[g.monitor]?.name ?? '?'}` : (status.camera_error || status.why || 'No face in view');
   $('feat').textContent = f ? `head ${f[0].toFixed(1)}° across, ${f[1].toFixed(1)}° up/down · ${status.fps} frames/s` : '';
   const j = status.last_jump;
   $('lastjump').textContent = j ? (j.ok ? `Last jump: ${cfg.monitors[j.monitor]?.name} at ${j.x}, ${j.y}` : `Last jump failed: ${j.reason}`) : '';
   drawDesk();
 }
 $('jump').onclick = async () => { const r = await api('/api/jump', {}); if (!r.ok) say(r.reason); tick(); };
-const sim = () => api('/api/sim', {f: [+$('s-yaw').value, +$('s-pitch').value, 0.5, 0], face: $('s-face').checked});
-['s-yaw', 's-pitch', 's-face'].forEach(id => $(id).oninput = sim);
+const sim = () => api('/api/sim', {f: [+$('s-yaw').value, +$('s-pitch').value, $('s-eh').value / 100, $('s-ev').value / 100], face: $('s-face').checked});
+['s-yaw', 's-pitch', 's-eh', 's-ev', 's-face'].forEach(id => $(id).oninput = sim);
 
 // ---- calibration ----------------------------------------------------------
 let cal = null;

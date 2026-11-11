@@ -2,6 +2,7 @@ import argparse
 
 from .app import App
 from .config import DEFAULT_PATH, Config
+from .eye import EyeTracker, SimEye
 from .hid import FakeLink, HidLink, LockKeyListener
 from .server import serve
 from .tracker import SimTracker, Tracker
@@ -19,9 +20,11 @@ def main():
     config = Config(args.config)
     tracker = SimTracker() if args.simulate else Tracker(config)
     link = FakeLink() if args.simulate else HidLink()
-    app = App(config, tracker, link)
+    eye = SimEye(tracker) if args.simulate else EyeTracker(config)
+    app = App(config, tracker, link, eye)
 
     tracker.start()
+    eye.start()
     LockKeyListener(link, config, app.jump).start()
 
     pin = config.data["trigger"]["gpio_pin"]

@@ -9,7 +9,14 @@ from look_mouse.app import App
 from look_mouse.config import Config
 from look_mouse.hid import FakeLink, LockKeyListener
 from look_mouse.server import make_handler
+from look_mouse.eye import SimEye, detect_pupil
 from look_mouse.tracker import SimTracker, features_from
+
+try:
+    import cv2
+    import numpy as np
+except ImportError:
+    cv2 = None
 
 # Pretend desk: each screen spans a range of head yaw / pitch (degrees) and a little eye movement.
 DESK = {0: ((-65, -35), (-25, 25)), 1: ((-20, 20), (-11, 11)), 2: ((32, 62), (-11, 11))}
@@ -24,7 +31,7 @@ def look(monitor, u, v):
 def make_app():
     cfg = Config(path=None)
     tracker, link = SimTracker(), FakeLink()
-    return App(cfg, tracker, link), tracker, link
+    return App(cfg, tracker, link, SimEye(tracker)), tracker, link
 
 
 def calibrate(app, tracker, points=GRID):
@@ -64,6 +71,62 @@ class GazeTests(unittest.TestCase):
         app.last_trigger = 0
         self.assertEqual(app.jump()["reason"], "No face in view")
         self.assertEqual(link.events, [])
+
+
+class GlassesTests(unittest.TestCase):
+    def test_glasses_camera_supplies_the_eye_direction(self):
+        app, tracker, _ = make_app()
+        app.config.update({"eye_camera": {"enabled": True}})
+        calibrate(app, tracker)
+        self.assertEqual(app.config.data["calibration_source"], "glasses")
+        tracker.f = look(2, 0.7, 0.3)
+        g = app.gaze()
+        self.assertEqual(g["monitor"], 2)
+        self.assertAlmostEqual(g["u"], 0.7, delta=0.06)
+
+    def test_calibration_made_without_glasses_is_not_reused_with_them(self):
+        app, tracker, link = make_app()
+        calibrate(app, tracker, points=(0.5,))
+        app.config.update({"eye_camera": {"enabled": True}})
+        r = app.jump()
+        self.assertFalse(r["ok"])
+        self.assertIn("Calibrate again", r["reason"])
+        self.assertFalse(app.add_sample(0, .5, .5)["ok"])
+        app.clear_samples()
+        self.assertTrue(app.add_sample(0, .5, .5)["ok"])
+        self.assertEqual(link.events, [])
+
+    def test_blink_gives_no_estimate(self):
+        class Blink(SimEye):
+            def recent(self, n, max_age=0.5): return []
+        app, tracker, _ = make_app()
+        app.eye = Blink(tracker)
+        app.config.update({"eye_camera": {"enabled": True}})
+        self.assertIsNone(app.features())
+        self.assertIn("pupil", app.why)
+
+    @unittest.skipIf(cv2 is None, "OpenCV not installed")
+    def test_pupil_is_found_despite_eyelashes_reflection_and_dark_corner(self):
+        rng = np.random.default_rng(1)
+        for cx, cy in ((200, 150), (120, 100), (260, 170)):
+            img = np.full((240, 320), 150, np.uint8)
+            cv2.ellipse(img, (cx + 5, cy), (60, 55), 0, 0, 360, 95, -1)        # iris
+            cv2.ellipse(img, (cx, cy), (24, 20), 15, 0, 360, 20, -1)           # pupil
+            cv2.circle(img, (cx + 6, cy - 5), 4, 255, -1)                      # reflection of a light
+            for i in range(6):                                                  # eyelashes
+                cv2.line(img, (60 + i * 35, 10), (70 + i * 35, 45), 25, 2)
+            cv2.rectangle(img, (0, 200), (40, 239), 10, -1)                    # dark picture corner
+            img = cv2.add(img, rng.integers(0, 12, img.shape, dtype=np.uint8))
+            p = detect_pupil(img)
+            self.assertIsNotNone(p)
+            self.assertAlmostEqual(p["x"] * 320, cx, delta=3)
+            self.assertAlmostEqual(p["y"] * 240, cy, delta=3)
+
+    @unittest.skipIf(cv2 is None, "OpenCV not installed")
+    def test_closed_eye_has_no_pupil(self):
+        img = np.full((240, 320), 150, np.uint8)
+        cv2.line(img, (60, 120), (260, 125), 30, 4)
+        self.assertIsNone(detect_pupil(img))
 
 
 class PointerTests(unittest.TestCase):

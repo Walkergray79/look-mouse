@@ -31,8 +31,8 @@ def make_handler(app):
                 self._send(app.status())
             elif path == "/api/config":
                 self._send(app.config.data)
-            elif path == "/frame.jpg":
-                jpeg = app.tracker.jpeg
+            elif path in ("/frame.jpg", "/eye.jpg"):
+                jpeg = app.tracker.jpeg if path == "/frame.jpg" else (app.eye and app.eye.jpeg)
                 self._send(jpeg, "image/jpeg") if jpeg else self._send(b"", "text/plain", 404)
             else:
                 self._send({"error": "not found"}, code=404)
