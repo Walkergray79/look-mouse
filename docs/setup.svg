@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 610" width="960" height="610" font-family="-apple-system, Segoe UI, Helvetica, Arial, sans-serif" role="img" aria-label="What's on the desk">
+<rect x="1" y="1" width="958" height="608" rx="14" fill="#f7f8fb" stroke="#cfd5e0" stroke-width="2"/>
+<text x="30" y="44" font-size="22" font-weight="700" fill="#1c2330">What's on the desk</text>
+<text x="30" y="68" font-size="14" fill="#5b667a">Your screens, keyboard and mouse stay exactly as they are. The Pi and camera are the only additions.</text>
+<rect x="150" y="100" width="110" height="190" rx="6" fill="#e3e9f6" stroke="#1c2330" stroke-width="2.5"/>
+<text x="205.0" y="195.0" font-size="14" fill="#1c2330" text-anchor="middle" font-weight="600">Left</text>
+<text x="205.0" y="213.0" font-size="12" fill="#5b667a" text-anchor="middle" font-weight="400">(portrait)</text>
+<rect x="290" y="150" width="230" height="135" rx="6" fill="#e3e9f6" stroke="#1c2330" stroke-width="2.5"/>
+<text x="405.0" y="222.5" font-size="14" fill="#1c2330" text-anchor="middle" font-weight="600">Centre</text>
+<rect x="550" y="150" width="230" height="135" rx="6" fill="#e3e9f6" stroke="#1c2330" stroke-width="2.5"/>
+<text x="665.0" y="222.5" font-size="14" fill="#1c2330" text-anchor="middle" font-weight="600">Right</text>
+<path d="M388 141 H275 V400 H330" fill="none" stroke="#1a9a5b" stroke-width="3"/>
+<rect x="388" y="130" width="34" height="20" rx="5" fill="#1a9a5b"/><circle cx="405" cy="140" r="5" fill="#fff"/>
+<path d="M432 134 L470 112" stroke="#5b667a" stroke-width="1.5"/>
+<text x="476" y="108" font-size="14" fill="#1a9a5b" text-anchor="start" font-weight="700">Camera</text>
+<text x="476" y="126" font-size="12" fill="#5b667a" text-anchor="start" font-weight="400">watches your head and eyes</text>
+<text x="266" y="345" font-size="12" fill="#5b667a" text-anchor="end" font-weight="400">camera cable</text>
+<rect x="330" y="360" width="160" height="80" rx="10" fill="#1a9a5b"/>
+<text x="410" y="394" font-size="16" fill="#fff" text-anchor="middle" font-weight="700">Raspberry Pi 4</text>
+<text x="410" y="416" font-size="12" fill="#fff" text-anchor="middle" font-weight="400">works out where you look</text>
+<text x="410" y="466" font-size="12" fill="#5b667a" text-anchor="middle" font-weight="400">On your network: its settings page</text>
+<text x="410" y="482" font-size="12" fill="#5b667a" text-anchor="middle" font-weight="400">opens in your browser</text>
+<path d="M490 400 H660" stroke="#2f6fed" stroke-width="3"/><path d="M660 400 l-12 -7 v14 z" fill="#2f6fed"/>
+<text x="575" y="388" font-size="13" fill="#2f6fed" text-anchor="middle" font-weight="700">USB cable</text>
+<text x="575" y="420" font-size="12" fill="#5b667a" text-anchor="middle" font-weight="400">the computer sees an</text>
+<text x="575" y="436" font-size="12" fill="#5b667a" text-anchor="middle" font-weight="400">ordinary mouse</text>
+<rect x="660" y="360" width="180" height="80" rx="10" fill="#ffffff" stroke="#1c2330" stroke-width="2.5"/>
+<text x="750" y="394" font-size="16" fill="#1c2330" text-anchor="middle" font-weight="700">Windows computer</text>
+<text x="750" y="416" font-size="12" fill="#5b667a" text-anchor="middle" font-weight="400">nothing installed on it</text>
+<path d="M750 285 V360" stroke="#5b667a" stroke-width="2" stroke-dasharray="5 5"/>
+<text x="760" y="328" font-size="12" fill="#5b667a" text-anchor="start" font-weight="400">screen cables</text>
+<path d="M700 505 V440 M805 500 V440" stroke="#5b667a" stroke-width="2"/>
+<rect x="610" y="505" width="160" height="44" rx="7" fill="#ffffff" stroke="#1c2330" stroke-width="2.5"/>
+<rect x="620" y="514" width="11" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="635" y="514" width="11" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="650" y="514" width="11" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="665" y="514" width="11" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="680" y="514" width="11" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="695" y="514" width="11" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="710" y="514" width="11" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="725" y="514" width="11" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="740" y="512" width="22" height="13" rx="3" fill="#ffcf3f" stroke="#1c2330" stroke-width="1.5"/>
+<rect x="620" y="531" width="140" height="9" rx="2" fill="#cfd5e0"/>
+<rect x="790" y="500" width="30" height="50" rx="15" fill="#ffffff" stroke="#1c2330" stroke-width="2.5"/><path d="M805 500 V520" stroke="#1c2330" stroke-width="2"/>
+<path d="M608 519 H597" stroke="#5b667a" stroke-width="1.5"/>
+<text x="592" y="516" font-size="14" fill="#1c2330" text-anchor="end" font-weight="700">Scroll Lock</text>
+<text x="592" y="534" font-size="12" fill="#5b667a" text-anchor="end" font-weight="400">is the trigger</text>
+<text x="715" y="580" font-size="12" fill="#5b667a" text-anchor="middle" font-weight="400">Your normal keyboard and mouse, plugged in as usual</text>
+</svg>
