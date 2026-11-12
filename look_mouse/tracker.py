@@ -40,12 +40,26 @@ class Tracker(threading.Thread):
         self.samples = collections.deque(maxlen=60)   # (time, features)
         self.jpeg = None
         self.fps = 0.0
+        self.process_ms = 0.0
         self.error = None
         self.simulated = False
+        self.preview_until = 0.0
 
-    def recent(self, n, max_age=0.7):
+    def recent(self, seconds):
+        """Readings from the last `seconds`; if there are none, the newest one if it is still fresh."""
         now = time.monotonic()
-        return [f for t, f in list(self.samples)[-n:] if now - t <= max_age]
+        samples = list(self.samples)
+        hits = [f for t, f in samples if now - t <= seconds]
+        if not hits and samples and now - samples[-1][0] <= 0.7:
+            hits = [samples[-1][1]]
+        return hits
+
+    def age_ms(self):
+        return round((time.monotonic() - self.samples[-1][0]) * 1000) if self.samples else None
+
+    def want_preview(self):
+        """Called while someone is watching the diagnostics view. Without it, no picture is drawn or encoded."""
+        self.preview_until = time.monotonic() + 1.5
 
     def run(self):
         while True:
@@ -72,6 +86,7 @@ class Tracker(threading.Thread):
         cap = cv2.VideoCapture(cam["index"])
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, size[0])
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, size[1])
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)   # always work on the newest picture, never a queued one
         if not cap.isOpened():
             raise RuntimeError("no camera found")
 
@@ -109,23 +124,43 @@ class Tracker(threading.Thread):
                                  data=cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
                 result = landmarker.detect_for_video(image, stamp)
                 face = result.face_landmarks[0] if result.face_landmarks else None
-                if face and result.facial_transformation_matrixes:
-                    self.samples.append((now, features_from(face, result.facial_transformation_matrixes[0])))
+                matrix = result.facial_transformation_matrixes[0] if face and result.facial_transformation_matrixes else None
+                done = time.monotonic()
+                if matrix is not None:
+                    self.samples.append((done, features_from(face, matrix)))
                 self.error = None
+                self.process_ms = 0.9 * self.process_ms + 0.1 * (done - now) * 1000
                 self.fps = 0.9 * self.fps + 0.1 / max(1e-3, now - last_ts)
                 last_ts = now
                 n += 1
-                if n % 3 == 0:
-                    self._preview(cv2, frame, face)
+                # The picture is only drawn and encoded while the diagnostics view is open.
+                if done < self.preview_until:
+                    if n % 2 == 0:
+                        self._preview(cv2, frame, face, matrix)
+                elif self.jpeg is not None:
+                    self.jpeg = None
         finally:
             close()
 
-    def _preview(self, cv2, frame, face):
+    def _preview(self, cv2, frame, face, matrix):
+        """Camera picture with the measured directions drawn on: head in orange, eyes in green."""
         h, w = frame.shape[:2]
-        if face:
-            for i in (468, 473, 1):
-                cv2.circle(frame, (int(face[i].x * w), int(face[i].y * h)), 4, (0, 255, 0), -1)
-        small = cv2.resize(frame, (320, int(320 * h / w)))
+        if matrix is not None:
+            def pt(i):
+                return int(face[i].x * w), int(face[i].y * h)
+            thick = max(2, w // 300)
+            for a, b, p in EYES:
+                (ax, ay), (bx, by), (ix, iy) = pt(a), pt(b), pt(p)
+                cx, cy = (ax + bx) // 2, (ay + by) // 2
+                cv2.circle(frame, (ix, iy), thick + 1, (0, 255, 0), -1)
+                # iris offset from the middle of the eye opening, exaggerated so it can be seen
+                cv2.arrowedLine(frame, (cx, cy), (cx + (ix - cx) * 8, cy + (iy - cy) * 8), (0, 255, 0), thick, tipLength=0.25)
+            face_width = abs(face[454].x - face[234].x) * w
+            nx, ny = pt(1)
+            # the direction the face points; the matrix has y upwards, pictures have y downwards
+            cv2.arrowedLine(frame, (nx, ny), (int(nx + matrix[0][2] * face_width * 1.2), int(ny - matrix[1][2] * face_width * 1.2)),
+                            (0, 160, 255), thick + 1, tipLength=0.2)
+        small = cv2.resize(frame, (400, int(400 * h / w)))
         ok, buf = cv2.imencode(".jpg", small, [cv2.IMWRITE_JPEG_QUALITY, 70])
         if ok:
             self.jpeg = buf.tobytes()
@@ -139,11 +174,18 @@ class SimTracker:
         self.face = True
         self.jpeg = None
         self.fps = 0.0
+        self.process_ms = 0.0
         self.error = None
         self.simulated = True
 
     def start(self):
         pass
 
-    def recent(self, n, max_age=0.7):
-        return [list(self.f)] * n if self.face else []
+    def want_preview(self):
+        pass
+
+    def age_ms(self):
+        return 0 if self.face else None
+
+    def recent(self, seconds):
+        return [list(self.f)] if self.face else []

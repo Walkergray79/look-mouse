@@ -38,31 +38,36 @@ class GazeModel:
     def __init__(self, calibration, use_eyes=True):
         self.models = {int(k): MonitorModel(v, use_eyes) for k, v in calibration.items() if v}
 
-    def predict(self, f):
-        """Return {"monitor", "u", "v", "precise"} or None if nothing is calibrated."""
-        if not self.models:
-            return None
+    def explain(self, f):
+        """One row per calibrated screen: what its model makes of this reading.
+
+        "u", "v" (where on that screen, 0..1) and "off" (how far outside it) are present
+        only for screens with enough calibration points to place the gaze.
+        """
         head = np.asarray(f, float)[:2]
-        dist = {i: float(np.linalg.norm(head - m.centroid)) for i, m in self.models.items()}
-
-        if all(m.w is not None for m in self.models.values()):
-            # Every screen can place the gaze; pick the one whose own model puts it on-screen.
-            best = None
-            for i, m in self.models.items():
+        rows = []
+        for i, m in sorted(self.models.items()):
+            row = {"monitor": i, "head_distance": float(np.linalg.norm(head - m.centroid))}
+            if m.w is not None:
                 u, v = m.predict(f)
-                off = max(0.0, -u, u - 1.0) + max(0.0, -v, v - 1.0)
-                if best is None or (off, dist[i]) < best[:2]:
-                    best = (off, dist[i], i, u, v)
-            _, _, i, u, v = best
-            return {"monitor": i, "u": _clip(u), "v": _clip(v), "precise": True}
+                row.update(u=u, v=v, off=max(0.0, -u, u - 1.0) + max(0.0, -v, v - 1.0))
+            rows.append(row)
+        return rows
 
-        # Otherwise fall back to whichever screen's average head direction is closest.
-        i = min(dist, key=dist.get)
-        m = self.models[i]
-        if m.w is None:
-            return {"monitor": i, "u": 0.5, "v": 0.5, "precise": False}
-        u, v = m.predict(f)
-        return {"monitor": i, "u": _clip(u), "v": _clip(v), "precise": True}
+    def predict(self, f, rows=None):
+        """Return {"monitor", "u", "v", "precise"} or None if nothing is calibrated."""
+        rows = self.explain(f) if rows is None else rows
+        if not rows:
+            return None
+        if all("u" in r for r in rows):
+            # Every screen can place the gaze; pick the one whose own model puts it on-screen.
+            best = min(rows, key=lambda r: (r["off"], r["head_distance"]))
+        else:
+            # Otherwise fall back to whichever screen's average head direction is closest.
+            best = min(rows, key=lambda r: r["head_distance"])
+        if "u" not in best:
+            return {"monitor": best["monitor"], "u": 0.5, "v": 0.5, "precise": False}
+        return {"monitor": best["monitor"], "u": _clip(best["u"]), "v": _clip(best["v"]), "precise": True}
 
 
 def _clip(x):

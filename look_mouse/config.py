@@ -29,7 +29,7 @@ DEFAULTS = {
     "behaviour": {
         "precision": "gaze",    # "gaze": jump to the estimated point; "centre": jump to the screen's centre
         "use_eyes": True,       # include eye direction, not just head direction
-        "window": 8,            # number of recent frames averaged for each estimate
+        "window_ms": 300,       # how far back readings are averaged for each estimate
     },
     "camera": {"source": "auto", "index": 0, "width": 640, "height": 480, "flip": False},
     # monitor index (as a string) -> list of {"f": [yaw, pitch, eye_h, eye_v], "u": 0..1, "v": 0..1}

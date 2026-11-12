@@ -84,19 +84,35 @@ Things to tune on the settings page:
 
 - **Jump to**: the point you are looking at, or always the centre of the screen.
 - **Use eye direction**: turn off to follow your head only, which is steadier but coarser.
-- **Frames averaged**: higher is steadier, lower reacts faster.
+- **Averaging time**: how far back readings are averaged. Higher is steadier, lower reacts faster.
 - **Trigger key**: Scroll Lock, Caps Lock or Num Lock, or a push button wired to the Pi.
+
+## Diagnostics
+
+Tick **Diagnostics** at the top of the settings page to see how an estimate is made:
+
+1. **What the camera sees**, with your head direction and eye direction drawn on as arrows.
+2. **The readings against your calibration points**, so you can see whether the screens
+   form separate groups and where the current reading sits among them.
+3. **What each screen makes of it**: where each screen's calibration would place the
+   reading, which screen wins, the final pixel, and how fast the camera and analysis are
+   running.
+
+Switch it off for normal use. The camera picture and these figures are only produced
+while the panel is open, and the Pi is asked for nothing at all while the settings page
+is closed or in a background tab. A jump never waits for any of it: the trigger uses
+readings the tracker already has.
 
 ## If something isn't working
 
 | What you see | What to try |
 |---|---|
-| "no face in view" or "camera problem" | Check the camera cable and that the preview shows your face. The message under **Live view** gives the detail. |
+| "no face in view" or "camera problem" | Check the camera cable, and switch on **Diagnostics** to see the camera picture. The message under **Live view** gives the detail. |
 | "USB link down" | The cable must be in the Pi's USB-C port (not the four big USB ports) and must be a data cable. |
 | Scroll Lock does nothing | Press **Jump now** on the settings page. If that works, the trigger is the problem: try another trigger key. If it says "Not calibrated yet", calibrate. |
 | Cursor goes to the wrong screen | Recalibrate that screen. Calibrate again whenever the camera or a screen has moved. |
 | Cursor only ever lands on the primary screen | Redo the pointer check and switch the dropdown. |
-| Cursor lands near but not on the spot | Use nine points rather than one, raise **Frames averaged**, or try with eye direction off. |
+| Cursor lands near but not on the spot | Use nine points rather than one, raise **Averaging time**, or try with eye direction off. |
 
 ## Try it without a Pi
 

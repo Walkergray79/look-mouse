@@ -22,7 +22,7 @@ class App:
     # ---- estimating ------------------------------------------------------------
 
     def features(self):
-        frames = self.tracker.recent(self.config.data["behaviour"]["window"])
+        frames = self.tracker.recent(self.config.data["behaviour"]["window_ms"] / 1000)
         if not frames:
             return None
         return [statistics.median(col) for col in zip(*frames)]
@@ -94,10 +94,28 @@ class App:
         self.config.update({"calibration": cal})
         return {"ok": True}
 
+    def diagnostics(self):
+        """Everything behind one estimate, for the diagnostics view. Only computed when asked for."""
+        f = self.features()
+        rows = self.model().explain(f) if f else []
+        g = self.model().predict(f, rows) if f else None
+        if g and g["monitor"] >= len(self.config.data["monitors"]):
+            g = None
+        return {
+            "features": f,
+            "candidates": [{k: round(v, 3) if isinstance(v, float) else v for k, v in r.items()} for r in rows],
+            "chosen": g,
+            "target": self.pixel(g["monitor"], g["u"], g["v"]) if g else None,
+            "calibration": {k: [s["f"] for s in v] for k, v in self.config.data["calibration"].items()},
+            "timing": {"fps": round(self.tracker.fps, 1), "process_ms": round(self.tracker.process_ms),
+                       "age_ms": self.tracker.age_ms(), "window_ms": self.config.data["behaviour"]["window_ms"]},
+        }
+
     def status(self):
         f = self.features()
         return {
             "simulated": self.tracker.simulated,
+            "why": None if f else "No face in view",
             "face": f is not None,
             "features": f,
             "fps": round(self.tracker.fps, 1),
