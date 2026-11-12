@@ -58,14 +58,28 @@ class EyeTracker(threading.Thread):
         self.samples = collections.deque(maxlen=60)   # (time, [x, y])
         self.jpeg = None
         self.fps = 0.0
+        self.process_ms = 0.0
         self.error = None
+        self.preview_until = 0.0
 
     def settings(self):
         return self.config.data["eye_camera"]
 
-    def recent(self, n, max_age=0.5):
+    def recent(self, seconds):
+        """Pupil positions from the last `seconds`; if none, the newest one if it is still fresh."""
         now = time.monotonic()
-        return [p for t, p in list(self.samples)[-n:] if now - t <= max_age]
+        samples = list(self.samples)
+        hits = [p for t, p in samples if now - t <= seconds]
+        if not hits and samples and now - samples[-1][0] <= 0.5:
+            hits = [samples[-1][1]]
+        return hits
+
+    def age_ms(self):
+        return round((time.monotonic() - self.samples[-1][0]) * 1000) if self.samples else None
+
+    def want_preview(self):
+        """Called while the diagnostics view is open. Without it, no picture is drawn or encoded."""
+        self.preview_until = time.monotonic() + 1.5
 
     def run(self):
         while True:
@@ -87,6 +101,7 @@ class EyeTracker(threading.Thread):
         cap = cv2.VideoCapture(int(source) if source.isdigit() else source)
         if not cap.isOpened():
             raise RuntimeError(f"could not open glasses camera '{source}'")
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)   # always work on the newest picture, never a queued one
         try:
             last = time.monotonic()
             n = 0
@@ -100,24 +115,35 @@ class EyeTracker(threading.Thread):
                 if s["flip"]:
                     frame = cv2.rotate(frame, cv2.ROTATE_180)
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                began = time.monotonic()
                 pupil = detect_pupil(gray, s["threshold"])
                 now = time.monotonic()
                 if pupil:
                     self.samples.append((now, [pupil["x"], pupil["y"]]))
                 self.error = None
+                self.process_ms = 0.9 * self.process_ms + 0.1 * (now - began) * 1000
                 self.fps = 0.9 * self.fps + 0.1 / max(1e-3, now - last)
                 last = now
                 n += 1
-                if n % 3 == 0:
-                    if pupil:
-                        cv2.ellipse(frame, pupil["ellipse"], (0, 255, 0), 2)
-                    h, w = frame.shape[:2]
-                    ok, buf = cv2.imencode(".jpg", cv2.resize(frame, (240, int(240 * h / w))),
-                                           [cv2.IMWRITE_JPEG_QUALITY, 70])
-                    if ok:
-                        self.jpeg = buf.tobytes()
+                # The picture is only drawn and encoded while the diagnostics view is open.
+                if now < self.preview_until:
+                    if n % 2 == 0:
+                        self._preview(cv2, frame, pupil)
+                elif self.jpeg is not None:
+                    self.jpeg = None
         finally:
             cap.release()
+
+    def _preview(self, cv2, frame, pupil):
+        """Eye picture with the pupil outlined and an arrow from the picture's centre to the pupil."""
+        h, w = frame.shape[:2]
+        cv2.drawMarker(frame, (w // 2, h // 2), (255, 255, 255), cv2.MARKER_CROSS, 14, 1)
+        if pupil:
+            cv2.ellipse(frame, pupil["ellipse"], (0, 255, 0), 2)
+            cv2.arrowedLine(frame, (w // 2, h // 2), (int(pupil["x"] * w), int(pupil["y"] * h)), (0, 255, 0), 2, tipLength=0.15)
+        ok, buf = cv2.imencode(".jpg", cv2.resize(frame, (320, int(320 * h / w))), [cv2.IMWRITE_JPEG_QUALITY, 70])
+        if ok:
+            self.jpeg = buf.tobytes()
 
 
 class SimEye:
@@ -127,10 +153,17 @@ class SimEye:
         self.tracker = tracker
         self.jpeg = None
         self.fps = 0.0
+        self.process_ms = 0.0
         self.error = None
 
     def start(self):
         pass
 
-    def recent(self, n, max_age=0.5):
-        return [[self.tracker.f[2], self.tracker.f[3]]] * n if self.tracker.face else []
+    def want_preview(self):
+        pass
+
+    def age_ms(self):
+        return 0 if self.tracker.face else None
+
+    def recent(self, seconds):
+        return [[self.tracker.f[2], self.tracker.f[3]]] if self.tracker.face else []

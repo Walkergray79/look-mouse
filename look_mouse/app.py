@@ -28,15 +28,15 @@ class App:
         return "glasses" if self.eye and self.config.data["eye_camera"]["enabled"] else "webcam"
 
     def features(self):
-        window = self.config.data["behaviour"]["window"]
-        frames = self.tracker.recent(window)
+        seconds = self.config.data["behaviour"]["window_ms"] / 1000
+        frames = self.tracker.recent(seconds)
         if not frames:
             self.why = "No face in view"
             return None
         f = [statistics.median(col) for col in zip(*frames)]
         if self.eye_source() == "glasses":
             # Head direction from the desk camera, eye direction from the glasses camera.
-            pupils = self.eye.recent(window)
+            pupils = self.eye.recent(seconds)
             if not pupils:
                 self.why = "Glasses camera can't see your pupil"
                 return None
@@ -124,6 +124,27 @@ class App:
         self.config.update({"calibration": cal, **({} if cal else {"calibration_source": None})})
         return {"ok": True}
 
+    def diagnostics(self):
+        """Everything behind one estimate, for the diagnostics view. Only computed when asked for."""
+        f = self.features()
+        rows = self.model().explain(f) if f else []
+        g = self.model().predict(f, rows) if f else None
+        if g and (g["monitor"] >= len(self.config.data["monitors"]) or not self.calibration_matches()):
+            g = None
+        glasses = self.eye_source() == "glasses"
+        return {
+            "eye_source": self.eye_source(),
+            "eye_timing": {"fps": round(self.eye.fps, 1), "process_ms": round(self.eye.process_ms),
+                           "age_ms": self.eye.age_ms()} if glasses else None,
+            "features": f,
+            "candidates": [{k: round(v, 3) if isinstance(v, float) else v for k, v in r.items()} for r in rows],
+            "chosen": g,
+            "target": self.pixel(g["monitor"], g["u"], g["v"]) if g else None,
+            "calibration": {k: [s["f"] for s in v] for k, v in self.config.data["calibration"].items()},
+            "timing": {"fps": round(self.tracker.fps, 1), "process_ms": round(self.tracker.process_ms),
+                       "age_ms": self.tracker.age_ms(), "window_ms": self.config.data["behaviour"]["window_ms"]},
+        }
+
     def status(self):
         f = self.features()
         g = self.gaze(f) if f else None
@@ -131,7 +152,7 @@ class App:
         return {
             "why": None if g else self.why,
             "eye": {"enabled": eye_cfg["enabled"], "error": self.eye.error if self.eye else None,
-                    "pupil": bool(self.eye and eye_cfg["enabled"] and self.eye.recent(3)),
+                    "pupil": bool(self.eye and eye_cfg["enabled"] and self.eye.recent(0.3)),
                     "fps": round(self.eye.fps, 1) if self.eye else 0},
             "simulated": self.tracker.simulated,
             "face": f is not None,

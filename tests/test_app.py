@@ -98,7 +98,7 @@ class GlassesTests(unittest.TestCase):
 
     def test_blink_gives_no_estimate(self):
         class Blink(SimEye):
-            def recent(self, n, max_age=0.5): return []
+            def recent(self, seconds): return []
         app, tracker, _ = make_app()
         app.eye = Blink(tracker)
         app.config.update({"eye_camera": {"enabled": True}})
@@ -127,6 +127,43 @@ class GlassesTests(unittest.TestCase):
         img = np.full((240, 320), 150, np.uint8)
         cv2.line(img, (60, 120), (260, 125), 30, 4)
         self.assertIsNone(detect_pupil(img))
+
+
+class SpeedTests(unittest.TestCase):
+    def test_only_recent_readings_are_used(self):
+        import time
+        from look_mouse.tracker import Tracker
+        t = Tracker(Config(path=None))
+        now = time.monotonic()
+        t.samples.extend([(now - 2.0, [1, 1, 1, 1]), (now - 0.5, [2, 2, 2, 2]), (now - 0.1, [3, 3, 3, 3])])
+        self.assertEqual(t.recent(0.3), [[3, 3, 3, 3]])
+        self.assertEqual(len(t.recent(0.6)), 2)
+        t.samples.pop()
+        self.assertEqual(t.recent(0.3), [[2, 2, 2, 2]])    # nothing in the window: newest fresh reading
+        t.samples.pop()
+        self.assertEqual(t.recent(0.3), [])                 # too old to trust
+
+    def test_diagnostics_report_the_glasses_camera(self):
+        app, tracker, _ = make_app()
+        calibrate(app, tracker, points=(0.5,))
+        self.assertEqual(app.diagnostics()["eye_source"], "webcam")
+        app.config.update({"eye_camera": {"enabled": True}})
+        d = app.diagnostics()
+        self.assertEqual(d["eye_source"], "glasses")
+        self.assertIsNone(d["chosen"])            # calibrated without the glasses: not used
+        self.assertIsNotNone(d["eye_timing"])
+
+    def test_diagnostics_explain_the_choice(self):
+        app, tracker, _ = make_app()
+        calibrate(app, tracker)
+        tracker.f = look(0, 0.5, 0.5)
+        d = app.diagnostics()
+        self.assertEqual(d["chosen"]["monitor"], 0)
+        offs = {r["monitor"]: r["off"] for r in d["candidates"]}
+        self.assertEqual(offs[0], 0)
+        self.assertGreater(offs[1], 0)
+        m = app.config.data["monitors"][0]
+        self.assertAlmostEqual(d["target"][0], m["x"] + m["w"] / 2, delta=m["w"] * 0.06)
 
 
 class PointerTests(unittest.TestCase):
@@ -206,7 +243,11 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(post("/api/jump", {})["monitor"], 2)
         status = json.load(urllib.request.urlopen(base + "/api/status"))
         self.assertEqual(status["samples"], {"0": 1, "1": 1, "2": 1})
-        self.assertEqual(post("/api/config", {"behaviour": {"window": 5}})["behaviour"]["window"], 5)
+        self.assertEqual(post("/api/config", {"behaviour": {"window_ms": 200}})["behaviour"]["window_ms"], 200)
+        diag = json.load(urllib.request.urlopen(base + "/api/diag"))
+        self.assertEqual(diag["chosen"]["monitor"], 2)
+        self.assertEqual(len(diag["candidates"]), 3)
+        self.assertEqual(len(diag["calibration"]["0"]), 1)
         srv.shutdown()
 
 

@@ -45,7 +45,8 @@ Mounting:
 
 1. Open the settings page and find **Glasses camera (optional)**.
 2. Enter the camera number or stream address and tick **use the glasses camera**.
-3. Look at the preview. A green outline should hug the pupil as you look around. If it
+3. Tick **Diagnostics** at the top of the page to see the glasses camera's picture. A
+   green outline should hug the pupil as you look around. If it
    doesn't, re-aim the camera, or change **Pupil darkness**: raise it if no outline
    appears, lower it if the outline spills beyond the pupil.
 4. **Clear all** calibration and calibrate each screen again with nine points. Calibration

@@ -29,6 +29,11 @@ def make_handler(app):
                     self._send(f.read(), "text/html; charset=utf-8")
             elif path == "/api/status":
                 self._send(app.status())
+            elif path == "/api/diag":
+                app.tracker.want_preview()
+                if app.eye:
+                    app.eye.want_preview()
+                self._send(app.diagnostics())
             elif path == "/api/config":
                 self._send(app.config.data)
             elif path in ("/frame.jpg", "/eye.jpg"):

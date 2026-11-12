@@ -14,6 +14,7 @@
             --accent: #6d9bff; --good: #4cc38a; --bad: #f0746b; --screen: #252c3a; }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body { margin: 0; background: var(--bg); color: var(--ink);
          font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { padding: 18px 24px 4px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
@@ -40,7 +41,17 @@
   .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
   label.field { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--muted); }
   label.check { display: flex; gap: 7px; align-items: center; }
-  #preview { width: 160px; border-radius: 8px; background: var(--screen); aspect-ratio: 4/3; object-fit: cover; }
+  #diag { grid-column: 1 / -1; }
+  #diag .cols { display: grid; grid-template-columns: minmax(220px, 4fr) minmax(260px, 5fr) minmax(280px, 6fr); gap: 18px; }
+  @media (max-width: 860px) { #diag .cols { grid-template-columns: 1fr; } }
+  #preview { width: 100%; border-radius: 8px; background: var(--screen); display: block; }
+  .plot { width: 100%; height: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; display: block; }
+  .plot text { fill: var(--muted); font-size: 10px; }
+  .key { display: inline-flex; align-items: center; gap: 5px; margin-right: 12px; font-size: 12px; color: var(--muted); }
+  .key i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  #d-steps td, #d-steps th { padding: 4px 10px 4px 0; font-size: 13px; }
+  #d-steps tr.chosen td { font-weight: 600; color: var(--accent); }
+  h3 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
   #desk { width: 100%; height: auto; display: block; margin-top: 12px; }
   #desk rect { fill: var(--screen); stroke: var(--line); stroke-width: 2; cursor: pointer; }
   #desk rect.looking { stroke: var(--accent); stroke-width: 4; }
@@ -62,15 +73,50 @@
   <span id="p-usb" class="pill">USB link</span>
   <span id="p-eye" class="pill" hidden>glasses camera</span>
   <span id="p-sim" class="pill" hidden>simulation</span>
-  <span id="msg" class="muted"></span>
+  <label class="check" style="margin-left:auto"><input type="checkbox" id="diag-on"> Diagnostics</label>
+  <span id="msg" class="muted" style="flex-basis:100%"></span>
 </header>
 
 <main>
+  <section class="card" id="diag" hidden>
+    <h2>Diagnostics</h2>
+    <div class="muted" style="margin-bottom:12px">Shows each stage of an estimate. The camera picture and these figures are only produced while this panel is open; switch it off for normal use.</div>
+    <div class="cols">
+      <div>
+        <h3>1. What the camera sees</h3>
+        <img id="preview" alt="Camera picture with head and eye directions drawn on">
+        <div id="d-nocam" class="muted" hidden>No camera picture in simulation.</div>
+        <div style="margin-top:6px"><span class="key"><i style="background:#ffa000"></i>head direction (short = facing the camera)</span><span class="key"><i style="background:#00e000"></i>eye direction (exaggerated)</span></div>
+        <div id="d-extra" hidden>
+          <h3 style="margin-top:14px">Glasses camera</h3>
+          <img id="eyeview" alt="Eye picture with the pupil outlined" style="width:100%; border-radius:8px; background:var(--screen); display:block">
+          <div class="muted" style="margin-top:6px">The green outline should hug the pupil. The arrow runs from the picture's centre to the pupil: that offset is the eye reading.</div>
+          <div id="d-eyetiming" class="muted"></div>
+        </div>
+      </div>
+      <div>
+        <h3>2. The readings, against your calibration points</h3>
+        <div id="d-keys" style="margin-bottom:6px"></div>
+        <svg id="d-head" class="plot" viewBox="0 0 260 150"></svg>
+        <div class="muted" style="margin:3px 0 10px">Head: turn left/right across, tilt up/down. The ring is now. Each screen should form its own group.</div>
+        <svg id="d-eye" class="plot" viewBox="0 0 260 110"></svg>
+        <div class="muted" style="margin-top:3px">Eye: position across and up/down (from the glasses camera when it is on). The points should spread out in a grid, like the dots you looked at.</div>
+      </div>
+      <div>
+        <h3>3. What each screen makes of it</h3>
+        <table id="d-steps"><thead><tr><th>Screen</th><th>Would land at</th><th>Off-screen by</th><th>Head distance</th></tr></thead><tbody></tbody></table>
+        <div id="d-result" style="margin-top:10px; font-weight:600"></div>
+        <div class="muted" style="margin-top:4px">The screen whose own calibration places the reading on-screen wins. Screens with fewer than four points are judged by head distance alone.</div>
+        <h3 style="margin-top:16px">Speed</h3>
+        <div id="d-timing" class="muted"></div>
+      </div>
+    </div>
+  </section>
+
   <div class="col">
     <section class="card">
       <h2>Live view</h2>
       <div class="row" style="margin-top:0; align-items:flex-start">
-        <img id="preview" alt="Camera preview">
         <div style="flex:1; min-width:150px">
           <div id="looking" style="font-weight:600">—</div>
           <div id="feat" class="muted"></div>
@@ -96,7 +142,7 @@
       <div class="row" style="margin-top:0">
         <label class="field">Jump to
           <select id="b-precision"><option value="gaze">the point I'm looking at</option><option value="centre">the centre of the screen</option></select></label>
-        <label class="field">Frames averaged <input type="number" id="b-window" min="1" max="30"></label>
+        <label class="field">Averaging time (ms) <input type="number" id="b-window" min="0" max="700" step="50"></label>
         <label class="check"><input type="checkbox" id="b-eyes"> use eye direction as well as head</label>
       </div>
       <div class="row">
@@ -138,7 +184,6 @@
       <h2>Glasses camera (optional)</h2>
       <div class="muted">A small camera on your glasses, pointed at one eye, gives a much finer reading of eye direction. The desk camera still tracks your head. Calibrate again after switching this on or off, and whenever the glasses have shifted.</div>
       <div class="row" style="align-items:flex-start">
-        <img id="eyeview" alt="Glasses camera preview" hidden style="width:150px; border-radius:8px; background:var(--screen)">
         <div style="flex:1; min-width:200px">
           <label class="check"><input type="checkbox" id="e-on"> use the glasses camera</label>
           <div class="row">
@@ -190,7 +235,7 @@ async function loadConfig() {
   $('pad').hidden = cfg.pointer.mode !== 'primary';
   $('p-scale').textContent = (+cfg.pointer.rel_px_per_count).toFixed(2);
   $('b-precision').value = cfg.behaviour.precision;
-  $('b-window').value = cfg.behaviour.window;
+  $('b-window').value = cfg.behaviour.window_ms;
   $('b-eyes').checked = cfg.behaviour.use_eyes;
   $('t-key').value = cfg.trigger.lock_key;
   $('t-restore').checked = cfg.trigger.restore;
@@ -223,7 +268,7 @@ $('m-save').onclick = async () => {
 const save = async patch => { await api('/api/config', patch); await loadConfig(); };
 $('p-mode').onchange = e => save({pointer: {mode: e.target.value}});
 $('b-precision').onchange = e => save({behaviour: {precision: e.target.value}});
-$('b-window').onchange = e => save({behaviour: {window: Math.max(1, +e.target.value || 8)}});
+$('b-window').onchange = e => save({behaviour: {window_ms: Math.min(700, Math.max(0, +e.target.value || 0))}});
 $('b-eyes').onchange = e => save({behaviour: {use_eyes: e.target.checked}});
 $('t-key').onchange = e => save({trigger: {lock_key: e.target.value}});
 $('t-restore').onchange = e => save({trigger: {restore: e.target.checked}});
@@ -258,7 +303,64 @@ function drawDesk() {
 }
 
 // ---- live status ----------------------------------------------------------
+// ---- diagnostics (only fetched and drawn while switched on) -----------------
+const PAL = ['#2f6fed', '#e0752d', '#1a9a5b', '#a44fd6', '#d1433a', '#0aa5b5'];
+let diagOn = false;
+try { diagOn = localStorage.getItem('diag') === '1'; } catch {}
+function setDiag(on) {
+  diagOn = on; $('diag-on').checked = on; $('diag').hidden = !on;
+  try { localStorage.setItem('diag', on ? '1' : '0'); } catch {}
+  if (!on) $('preview').removeAttribute('src');
+}
+$('diag-on').onchange = e => setDiag(e.target.checked);
+function scatter(id, xi, yi, d, minSpan) {
+  const box = $(id), [W, H] = box.getAttribute('viewBox').split(' ').slice(2).map(Number);
+  const pts = [];
+  for (const [k, arr] of Object.entries(d.calibration)) arr.forEach(f => pts.push({x: f[xi], y: f[yi], m: +k}));
+  const now = d.features && {x: d.features[xi], y: d.features[yi]};
+  const all = now ? pts.concat([now]) : pts;
+  box.replaceChildren();
+  if (!all.length) return;
+  const span = k => { let lo = Math.min(...all.map(p => p[k])), hi = Math.max(...all.map(p => p[k])); const pad = Math.max((hi - lo) * .15, (minSpan - (hi - lo)) / 2, 1e-6); return [lo - pad, hi + pad]; };
+  const [x0, x1] = span('x'), [y0, y1] = span('y');
+  const X = v => 8 + (v - x0) / (x1 - x0) * (W - 16), Y = v => 8 + (v - y0) / (y1 - y0) * (H - 16);
+  pts.forEach(p => box.append(svg('circle', {cx: X(p.x), cy: Y(p.y), r: 4, fill: PAL[p.m % PAL.length], opacity: .8})));
+  if (now) box.append(svg('circle', {cx: X(now.x), cy: Y(now.y), r: 8, fill: 'none', stroke: 'var(--ink)', 'stroke-width': 2.5}),
+                      svg('circle', {cx: X(now.x), cy: Y(now.y), r: 2, fill: 'var(--ink)'}));
+  const lab = (x, y, t, a) => { const e = svg('text', {x, y, 'text-anchor': a}); e.textContent = t; box.append(e); };
+  const fmt = v => Math.abs(v) >= 10 ? v.toFixed(0) : v.toFixed(2);
+  lab(4, H - 3, fmt(x0), 'start'); lab(W - 4, H - 3, fmt(x1), 'end');
+}
+async function diagTick() {
+  let d; try { d = await api('/api/diag'); } catch { return; }
+  $('preview').hidden = status.simulated; $('d-nocam').hidden = !status.simulated;
+  if (!status.simulated) { const im = new Image(); im.onload = () => { if (diagOn) $('preview').src = im.src; }; im.src = '/frame.jpg?' + Date.now(); }
+  const name = i => cfg.monitors[i]?.name ?? '?';
+  $('d-keys').replaceChildren(...Object.keys(d.calibration).map(k => { const s = el('span', {className: 'key'}, [el('i'), name(+k)]); s.firstChild.style.background = PAL[+k % PAL.length]; return s; }));
+  scatter('d-head', 0, 1, d, 10); scatter('d-eye', 2, 3, d, .08);
+  const pct = v => Math.round(v * 100) + '%';
+  $('d-steps').tBodies[0].replaceChildren(...d.candidates.map(c => {
+    const tr = el('tr', {}, [name(c.monitor), 'u' in c ? `${pct(c.u)} across, ${pct(c.v)} down` : 'screen only (under four points)',
+      'u' in c ? (c.off ? pct(c.off) : 'on screen') : '—', c.head_distance.toFixed(1) + '°'].map(t => el('td', {textContent: t})));
+    if (d.chosen && d.chosen.monitor === c.monitor) tr.className = 'chosen';
+    return tr; }));
+  $('d-result').textContent = d.chosen ? `→ ${name(d.chosen.monitor)}, pixel ${d.target[0]}, ${d.target[1]}` : (d.features ? (status.why || 'Not calibrated yet') : 'No reading');
+  const t = d.timing;
+  $('d-timing').textContent = status.simulated ? `Simulation · averaging the last ${t.window_ms} ms` :
+    `Camera ${t.fps} pictures/s · ${t.process_ms} ms to analyse each · newest reading ${t.age_ms ?? '—'} ms old · averaging the last ${t.window_ms} ms`;
+  diagExtra(d);
+}
+function diagExtra(d) {
+  const on = d.eye_source === 'glasses';
+  $('d-extra').hidden = !on || status.simulated;
+  if (!on || status.simulated) return;
+  const im = new Image(); im.onload = () => { if (diagOn) $('eyeview').src = im.src; }; im.src = '/eye.jpg?' + Date.now();
+  const t = d.eye_timing;
+  $('d-eyetiming').textContent = `${t.fps} pictures/s · ${t.process_ms} ms to analyse each · newest reading ${t.age_ms ?? '—'} ms old`;
+}
+
 async function tick() {
+  if (document.hidden) return;   // nothing is asked of the Pi while this page isn't being looked at
   try { status = await api('/api/status'); } catch { $('p-usb').className = 'pill bad'; $('p-usb').textContent = 'app not responding'; return; }
   $('p-face').className = 'pill ' + (status.face ? 'good' : 'bad');
   $('p-face').textContent = status.face ? 'face in view' : (status.camera_error ? 'camera problem' : 'no face in view');
@@ -266,20 +368,17 @@ async function tick() {
   $('p-usb').textContent = status.usb_error ? 'USB link down' : 'USB link ok';
   $('p-usb').title = status.usb_error || '';
   $('p-sim').hidden = $('sim').hidden = !status.simulated;
-  $('preview').hidden = status.simulated;
-  if (!status.simulated && !document.hidden) $('preview').src = '/frame.jpg?' + Date.now();
   const g = status.gaze, f = status.features, eye = status.eye;
   $('p-eye').hidden = !eye.enabled;
   $('p-eye').className = 'pill ' + (eye.pupil ? 'good' : 'bad');
   $('p-eye').textContent = eye.pupil ? 'pupil in view' : 'no pupil in view';
-  $('eyeview').hidden = !eye.enabled || status.simulated;
-  if (eye.enabled && !status.simulated && !document.hidden) $('eyeview').src = '/eye.jpg?' + Date.now();
-  $('e-msg').textContent = !eye.enabled ? '' : (eye.error || (eye.pupil ? `Pupil found · ${eye.fps} frames/s. The green outline should hug the pupil.` : 'No pupil found. Adjust the camera or the pupil darkness until a green outline hugs the pupil.'));
+  $('e-msg').textContent = !eye.enabled ? '' : (eye.error || (eye.pupil ? `Pupil found · ${eye.fps} pictures/s.` : 'No pupil found. Re-aim the camera or adjust the pupil darkness.') + ' Switch on Diagnostics to see the picture.');
   $('looking').textContent = g ? `Looking at: ${cfg.monitors[g.monitor]?.name ?? '?'}` : (status.camera_error || status.why || 'No face in view');
   $('feat').textContent = f ? `head ${f[0].toFixed(1)}° across, ${f[1].toFixed(1)}° up/down · ${status.fps} frames/s` : '';
   const j = status.last_jump;
   $('lastjump').textContent = j ? (j.ok ? `Last jump: ${cfg.monitors[j.monitor]?.name} at ${j.x}, ${j.y}` : `Last jump failed: ${j.reason}`) : '';
   drawDesk();
+  if (diagOn) diagTick();
 }
 $('jump').onclick = async () => { const r = await api('/api/jump', {}); if (!r.ok) say(r.reason); tick(); };
 const sim = () => api('/api/sim', {f: [+$('s-yaw').value, +$('s-pitch').value, $('s-eh').value / 100, $('s-ev').value / 100], face: $('s-face').checked});
@@ -335,6 +434,7 @@ document.addEventListener('keydown', async e => {
   }
 });
 
+setDiag(diagOn);
 loadConfig().then(() => { tick(); setInterval(tick, 300); });
 </script>
 </body>
