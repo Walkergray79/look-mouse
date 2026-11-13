@@ -7,7 +7,8 @@ DIR="$PWD"
 MODEL_URL=https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
 
 echo "== System packages"
-sudo apt-get update
+# Accept changed release labels (e.g. Debian renaming a release to "oldstable"), which otherwise stop the update.
+sudo apt-get update --allow-releaseinfo-change
 sudo apt-get install -y python3-venv python3-picamera2 python3-gpiozero libegl1 libgles2 curl
 
 echo "== Python environment"
