@@ -151,7 +151,7 @@ Tests: `python3 -m unittest discover -s tests`
 ## What has and hasn't been tested
 
 Tested on a desktop Linux machine: the calibration maths, jump logic, trigger logic, web
-interface (in simulation), and the face tracker against a sample photo (MediaPipe 1.2.3).
+interface (in simulation), and the face tracker against a sample photo.
 
 Not yet run on a Pi: the installer, the USB device setup, the Pi camera capture, and how
 Windows places the pointer across three screens. The pointer check in the web page exists

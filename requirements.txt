@@ -1,2 +1,3 @@
-mediapipe
+# Pinned: newer MediaPipe builds need a processor feature (AES) the Raspberry Pi 4 lacks and crash on start.
+mediapipe==0.10.14
 numpy
